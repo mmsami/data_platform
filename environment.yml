@@ -1,0 +1,20 @@
+# Create environment.yml
+name: data_platform
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.13
+  - pandas
+  - numpy
+  - requests
+  - aiohttp
+  - beautifulsoup4
+  - selenium
+  - sqlalchemy
+  - psycopg2
+  - pytest
+  - jupyter
+  - black
+  - mypy
+  - python-dotenv
