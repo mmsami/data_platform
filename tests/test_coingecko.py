@@ -1,22 +1,37 @@
 # src/tests/test_coingecko.py
 import asyncio
-import sys
-from pathlib import Path
+import pytest
+from collectors.coingecko import CoinGeckoCollector
+
+# import sys
+# from pathlib import Path
 
 # Add project root to path
-project_root = str(Path.cwd())
-sys.path.append(project_root)
-print(f"Project root: {project_root}")
+# project_root = str(Path.cwd())
+# sys.path.append(project_root)
+# print(f"Project root: {project_root}")
 
-from src.collectors.coingecko import CoinGeckoCollector
+# from src.collectors.coingecko import CoinGeckoCollector
 
+@pytest.mark.asyncio
 async def test_collector():
     # Instantiate the collector
     collector = CoinGeckoCollector()
 
     records = await collector.collectBTC(days=14)
-    for record in records[:5]:  # Print first 5 records
-        print(record)
+    assert len(records) > 0  # basic check
+    
+    # Print directly to sys.stdout to bypass pytest capture
+    print("\nFirst 5 records from CoinGecko:")
+    for record in records[:5]:
+        print(f"{record}")
+
+    # Capture printed output
+    # captured = capsys.readouterr()
+    # print(captured.out)
+
+    # Check if some expected text is in the output
+    # assert "source='coingecko'" in captured.out
 
 
 # Run the asynchronous test function
