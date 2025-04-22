@@ -34,3 +34,10 @@ class CoinGeckoCollector(BaseCollector):
                     )
                     for price in prices
                 ]
+
+    async def collect(self, days: int = 14) -> List[DataRecord]:
+        """
+        Implementation of the base collector interface.
+        By default, collects BTC data for the last 14 days.
+        """
+        return await self.collectBTC(days=days)
