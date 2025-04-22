@@ -30,7 +30,7 @@ class CoinGeckoCollector(BaseCollector):
                     DataRecord(
                         source=self.name,
                         data={"timestamp": datetime.fromtimestamp(price[0] / 1000, timezone.utc), "price": price[1]},
-                        timestamp=datetime.now(timezone.utc)
+                        timestamp=datetime.now(timezone.utc).isoformat()
                     )
                     for price in prices
                 ]
