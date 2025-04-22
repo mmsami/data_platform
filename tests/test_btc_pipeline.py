@@ -16,7 +16,7 @@ async def test_btc_pipeline():
     #     print("\nNo DATABASE_URL found in environment")
     
     # Verify database connection is configured
-    assert os.getenv(db_url), "DATABASE_URL not found in environment"
+    assert db_url, "DATABASE_URL not found in environment"
     
     pipeline = BTCPipeline()
     records = await pipeline.run(days=1)  # Reduced to 1 day for testing
