@@ -3,11 +3,12 @@ from .base import BaseCollector, DataRecord
 import aiohttp
 from datetime import datetime, timezone
 from typing import List
+from ..config.settings import settings
 
 class CoinGeckoCollector(BaseCollector):
     def __init__(self) -> None:
         super().__init__(name="coingecko")
-        self.base_url = "https://api.coingecko.com/api/v3"
+        self.base_url = settings.COINGECKO_BASE_URL
     
     async def collectBTC(self, days: int = 14) -> List[DataRecord]:
         """

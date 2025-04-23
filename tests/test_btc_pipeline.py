@@ -3,6 +3,7 @@ import asyncio
 import pytest
 import os
 from src.pipelines.btc_pipeline import BTCPipeline
+from src.config.settings import settings
 
 @pytest.mark.asyncio
 async def test_btc_pipeline():
@@ -16,7 +17,7 @@ async def test_btc_pipeline():
     #     print("\nNo DATABASE_URL found in environment")
     
     # Verify database connection is configured
-    assert db_url, "DATABASE_URL not found in environment"
+    assert settings.DATABASE_URL, "DATABASE_URL not found in settings"
     
     pipeline = BTCPipeline()
     records = await pipeline.run(days=1)  # Reduced to 1 day for testing
