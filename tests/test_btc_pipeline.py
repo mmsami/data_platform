@@ -8,7 +8,7 @@ from src.config.settings import settings
 @pytest.mark.asyncio
 async def test_btc_pipeline():
     # Debug: Print the database URL (masking password)
-    db_url = os.getenv('DATABASE_URL')
+    db_url = settings.DATABASE_URL
     # if db_url:
     #     # Mask the password in the URL for security
     #     masked_url = db_url.split('@')[0] + '@' + db_url.split('@')[1] if '@' in db_url else db_url
@@ -17,7 +17,7 @@ async def test_btc_pipeline():
     #     print("\nNo DATABASE_URL found in environment")
     
     # Verify database connection is configured
-    assert settings.DATABASE_URL, "DATABASE_URL not found in settings"
+    assert db_url, "DATABASE_URL not found in settings"
     
     pipeline = BTCPipeline()
     records = await pipeline.run(days=1)  # Reduced to 1 day for testing
