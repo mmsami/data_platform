@@ -4,7 +4,7 @@ import aiohttp
 import asyncio
 from datetime import datetime, timezone
 from typing import List
-from ..config.settings import settings
+from src.config.settings import settings
 from src.utils.rate_limiter import RateLimiter
 
 class CoinGeckoCollector(BaseCollector):
@@ -43,28 +43,33 @@ class CoinGeckoCollector(BaseCollector):
         """
         Fetch historical price data for Bitcoin over the specified number of days.
         """
-        url = f"{self.base_url}/coins/bitcoin/market_chart"
-        params = {
-            "vs_currency": "eur",  # Target currency: EUR
-            "days": days           # Number of days to fetch historical data
-        }
+        data_records = []
+        for currency in settings.SUPPORTED_CURRENCIES:
+            url = f"{self.base_url}/coins/bitcoin/market_chart"
+            params = {
+                "vs_currency": currency,  
+                "days": days           # Number of days to fetch historical data
+            }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params) as response:
-                data = await self._make_request(url, params)
+            data = await self._make_request(url, params)
+            # Extract prices from the response
+            prices = data.get("prices", [])
 
-                # Extract prices from the response
-                prices = data.get("prices", [])
-
-                return [
+            for price in prices:
+                data_records.append(
                     DataRecord(
                         source=self.name,
-                        data={"timestamp": datetime.fromtimestamp(price[0] / 1000, timezone.utc), "price": price[1]},
-                        timestamp=datetime.now(timezone.utc).isoformat()
+                        data={
+                            "price": price[1],
+                            "currency": currency,
+                            "timestamp": datetime.fromtimestamp(price[0] / 1000, timezone.utc)
+                        },
+                        timestamp=datetime.now(timezone.utc)
                     )
-                    for price in prices
-                ]
-
+                )
+        return data_records
+        
+        
     async def collect(self, days: int = 14) -> List[DataRecord]:
         """
         Implementation of the base collector interface.

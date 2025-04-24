@@ -18,6 +18,7 @@ class Settings:
 
     # Collection settings
     DEFAULT_CURRENCY: str = "eur"
+    SUPPORTED_CURRENCIES: list[str] = ["usd", "eur", "gbp"]
     RATE_LIMIT_CALLS: int = 10
     RATE_LIMIT_PERIOD: int = 60  # in seconds
 

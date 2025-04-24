@@ -13,10 +13,14 @@ class BTCProcessor:
             # - Data validation
             # - Calculating additional metrics
             # - Filtering unwanted data
+            price_data = {
+                f"price_{record.data['currency']}": record.data["price"]
+            }
             processed.append(
                 BTCPrice(
-                    price_eur = record.data["price"],
-                    price_timestamp = record.data["timestamp"],
+                    price=record.data['price'],
+                    currency=record.data['currency'],
+                    price_timestamp=record.data['timestamp'],
                     collected_at=record.timestamp
                 )
             )

@@ -1,6 +1,6 @@
 # src/pipelines/btc_pipeline.py
 from typing import List
-from src.collectors.coingecko import CoinGeckoCollector
+from src.collectors.btc_collector import CoinGeckoCollector
 from src.processors.btc_processor import BTCProcessor
 from src.storage.models import BTCPrice
 from src.storage.database import DatabaseManager
@@ -34,14 +34,15 @@ class BTCPipeline:
                 stmt = pg_insert(BTCPrice.__table__).values(
                     [
                         {
-                            'price_eur': record.price_eur,
+                            'price': record.price,
+                            'currency': record.currency,
                             'price_timestamp': record.price_timestamp,
                             'collected_at': record.collected_at
                         }
                         for record in processed_data
                     ]
                 ).on_conflict_do_nothing(
-                    index_elements=['price_timestamp']
+                    index_elements=['price_timestamp', 'currency']
                 )
 
                 # Execute the statement

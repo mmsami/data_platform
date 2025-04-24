@@ -1,7 +1,7 @@
 # src/tests/test_coingecko.py
 import asyncio
 import pytest
-from collectors.coingecko import CoinGeckoCollector
+from collectors.btc_collector import CoinGeckoCollector
 
 # import sys
 # from pathlib import Path
