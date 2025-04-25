@@ -1,0 +1,11 @@
+{
+    "include": ["src"],
+    "executionEnvironments": [
+      {
+        "root": "src",
+        "pythonVersion": "3.11",
+        "pythonPlatform": "Darwin" //change to Linux later
+      }
+    ]
+  }
+  

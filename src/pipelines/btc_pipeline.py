@@ -8,6 +8,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from src.utils.metrics import MetricsCollector
 from src.utils.logger import logger
+from src.validators.price_validator import PriceValidator
+from src.analysis.price_analyzer import PriceAnalyzer
+from src.config.settings import settings
 
 class BTCPipeline:
     def __init__(self):
@@ -15,6 +18,7 @@ class BTCPipeline:
         self.processor = BTCProcessor()
         self.db = DatabaseManager()
         self.metrics = MetricsCollector()
+        self.validator =PriceValidator()
 
     async def run(self, days : int = 14) -> List[BTCPrice]:
         self.metrics.start_collection()
@@ -27,6 +31,19 @@ class BTCPipeline:
 
             # Process data
             processed_data = self.processor.process_records(raw_records)
+
+            # Validate data before storage
+            for currency in settings.SUPPORTED_CURRENCIES:
+                currency_data = [r for r in processed_data if r.currency == currency]
+                prices = [r.price for r in currency_data]
+                timestamps = [r.price_timestamp for r in currency_data]
+
+                validation_result = self.validator.validate_price_data(prices, timestamps)
+
+                if not validation_result.is_valid:
+                    logger.error(f"Validation errors for {currency}: {validation_result.errors}")
+                if validation_result.warnings:
+                    logger.warning(f"Validation warnings for {currency}: {validation_result.warnings}")
 
             # Store data
             with self.db.get_session() as session:
