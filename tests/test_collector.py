@@ -14,11 +14,11 @@ from collectors.btc_collector import CoinGeckoCollector
 # from src.collectors.coingecko import CoinGeckoCollector
 
 @pytest.mark.asyncio
-async def test_collector():
+async def test_btc_collector():
     # Instantiate the collector
     collector = CoinGeckoCollector()
 
-    records = await collector.collectBTC(days=14)
+    records = await collector.collect(days=14)
     assert len(records) > 0  # basic check
     
     # Print directly to sys.stdout to bypass pytest capture
