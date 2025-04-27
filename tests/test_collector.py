@@ -36,4 +36,4 @@ async def test_btc_collector():
 
 # Run the asynchronous test function
 if __name__ == "__main__":
-    asyncio.run(test_collector())
+    asyncio.run(test_btc_collector())
