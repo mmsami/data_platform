@@ -1,0 +1,13 @@
+# podman-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Containerfile
+    environment:
+      - DATABASE_URL=${DATABASE_URL}  # Use your Neon connection string
+    volumes:
+      - ./src:/app/src
+      - ./notebooks:/app/notebooks
