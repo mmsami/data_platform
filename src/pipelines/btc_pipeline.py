@@ -17,6 +17,8 @@ from src.analysis.price_analyzer import PriceAnalyzer
 from src.config.settings import settings
 from src.utils.exceptions import ValidationError, CollectionError
 from src.utils.error_tracker import ErrorTracker
+from src.validators.validators import DataQualityValidator
+from src.storage.quality_storage import QualityCheckResult
 
 class BTCPipeline:
     def __init__(self):
@@ -26,6 +28,7 @@ class BTCPipeline:
         self.metrics = MetricsCollector()
         self.validator = PriceValidator()
         self.error_tracker = ErrorTracker()
+        self.quality_validator = DataQualityValidator()
 
     async def run(self, days : int = 14) -> List[BTCPrice]:
         self.metrics.start_collection()
@@ -47,6 +50,49 @@ class BTCPipeline:
                 self.error_tracker.record_error('processing', e, {'records': len(raw_records)})
                 raise
 
+            # Data Quality Checks
+            quality_issues = False
+            for currency in settings.SUPPORTED_CURRENCIES:
+                currency_data = [r for r in processed_data if r.currency == currency]
+                if not currency_data:
+                    continue
+
+                prices = [r.price for r in currency_data]
+                timestamps = [r.price_timestamp for r in currency_data]
+                
+                # Run quality checks
+                quality_report = self.quality_validator.validate_price_data(
+                    prices=prices,
+                    timestamps=timestamps
+                )
+
+                # Store quality results
+                with self.db.get_session() as session:
+                    for check in quality_report.checks:
+                        result = QualityCheckResult(
+                            timestamp=quality_report.timestamp,
+                            source=f"btc_price_{currency}",
+                            check_name=check.name,
+                            passed=check.passed,
+                            message=check.message,
+                            details=check.details
+                        )
+                        session.add(result)
+                    session.commit()
+
+                # Log quality issues
+                if not quality_report.passed:
+                    quality_issues = True
+                    logger.warning(f"Quality issues found for {currency}: {quality_report.summary}")
+                    for check in quality_report.checks:
+                        if not check.passed:
+                            logger.warning(f"Failed check: {check.message}")
+                            self.error_tracker.record_error(
+                                'quality',
+                                ValueError(check.message),
+                                {'currency': currency, 'check': check.name}
+                            )
+            
             # Validate data before storage
             validation_errors = False
             for currency in settings.SUPPORTED_CURRENCIES:
@@ -73,9 +119,9 @@ class BTCPipeline:
                     )
 
             # Stop pipeline if validation failed
-            if validation_errors:
-                logger.error("Validation failed, stopping pipeline")
-                raise ValueError("Data validation failed")
+            if validation_errors or quality_issues:
+                logger.error("Validation or quality checks failed, stopping pipeline")
+                raise ValueError("Data validation or quality checks failed")
 
             # Store data
             with self.db.get_session() as session:

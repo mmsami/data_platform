@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 from typing import Dict
 from src.utils.logger import logger
+from src.storage.quality_storage import QualityCheckResult
 
 class Dashboard:
     @staticmethod
@@ -122,3 +123,29 @@ class Dashboard:
         except Exception as e:
             logger.error(f"Error saving dashboard: {str(e)}")
             raise
+    
+    @staticmethod
+    def add_quality_section(html: str, db_session) -> str:
+        # Get recent quality checks
+        recent_checks = db_session.query(QualityCheckResult)\
+            .order_by(QualityCheckResult.timestamp.desc())\
+            .limit(10)\
+            .all()
+
+        html += """
+        <h2>Data Quality</h2>
+        <div class="quality-section">
+        """
+
+        for check in recent_checks:
+            status_class = 'success' if check.passed else 'error'
+            html += f"""
+            <div class="quality-check {status_class}">
+                <strong>{check.source} - {check.check_name}</strong>
+                <p>{check.message}</p>
+                <small>{check.timestamp}</small>
+            </div>
+            """
+
+        html += "</div>"
+        return html
