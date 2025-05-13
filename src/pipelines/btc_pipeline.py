@@ -3,8 +3,9 @@
 # import os
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from typing import List
-from src.collectors.btc_collector import CoinGeckoCollector
+from typing import List, Dict
+from src.collectors.btc_collector import CoinGeckoCollector, BinanceCollector, KrakenCollector
+from src.collectors.rpa_collector import RPACollector
 from src.processors.btc_processor import BTCProcessor
 from src.storage.models import BTCPrice
 from src.storage.database import DatabaseManager
@@ -22,7 +23,13 @@ from src.storage.quality_storage import QualityCheckResult
 
 class BTCPipeline:
     def __init__(self):
-        self.collector = CoinGeckoCollector()
+        # Initialize collectors
+        self.collectors = {
+            'coingecko': CoinGeckoCollector(),
+            'binance': BinanceCollector(),
+            'kraken': KrakenCollector(),
+            'rpa': RPACollector()
+        }
         self.processor = BTCProcessor()
         self.db = DatabaseManager()
         self.metrics = MetricsCollector()
@@ -30,24 +37,40 @@ class BTCPipeline:
         self.error_tracker = ErrorTracker()
         self.quality_validator = DataQualityValidator()
 
-    async def run(self, days : int = 14) -> List[BTCPrice]:
+    async def run(self, days: int = 14, sources: List[str] = None, rpa_config: Dict = None) -> List[BTCPrice]:
+        """Enhanced pipeline supporting multiple data sources"""
         self.metrics.start_collection()
+        
         try:
             # Initialize database
             self.db.init_db()
 
-            # Collect data
-            try:
-                raw_records = await self.collector.collectBTC(days=days)
-            except Exception as e:
-                self.error_tracker.record_error('collection', e, {'days': days})
-                raise
+            # Determine which sources to collect from
+            if not sources:
+                sources = ['coingecko']  # Default to CoinGecko if no sources specified
+            
+            # Collect data from all specified sources
+            all_raw_records = []
+            for source in sources:
+                if source not in self.collectors:
+                    logger.warning(f"Unknown source: {source}")
+                    continue
+                
+                source_records = await self.collect_from_source(
+                    source, 
+                    days=days,
+                    rpa_config=rpa_config if source == 'rpa' else None
+                )
+                all_raw_records.extend(source_records)
+
+            if not all_raw_records:
+                raise CollectionError("No data collected from any source")
 
             # Process data
             try:
-                processed_data = self.processor.process_records(raw_records)
+                processed_data = self.processor.process_records(all_raw_records)
             except Exception as e:
-                self.error_tracker.record_error('processing', e, {'records': len(raw_records)})
+                self.error_tracker.record_error('processing', e, {'records': len(all_raw_records)})
                 raise
 
             # Data Quality Checks
@@ -103,7 +126,7 @@ class BTCPipeline:
                         ValueError(f"No data for {currency}"),
                         {'currency': currency}
                     )
-                    validation_errors = True  # Set to True when no data
+                    validation_errors = True
                     continue
 
                 prices = [r.price for r in currency_data]
@@ -111,7 +134,7 @@ class BTCPipeline:
                 validation_result = self.validator.validate_price_data(prices, timestamps)
 
                 if not validation_result.is_valid:
-                    validation_errors = True  # Set to True on validation failure
+                    validation_errors = True
                     self.error_tracker.record_error(
                         'validation',
                         ValueError(validation_result.errors),
@@ -126,7 +149,6 @@ class BTCPipeline:
             # Store data
             with self.db.get_session() as session:
                 try:
-                    # Create insert statement with ON CONFLICT DO NOTHING
                     stmt = pg_insert(BTCPrice.__table__).values(
                         [
                             {
@@ -141,11 +163,9 @@ class BTCPipeline:
                         index_elements=['price_timestamp', 'currency']
                     )
 
-                    # Execute the statement
                     result = session.execute(stmt)
                     session.commit()
 
-                    # Log results
                     total_records = len(processed_data)
                     inserted_records = result.rowcount
                     skipped_records = total_records - inserted_records
@@ -163,15 +183,19 @@ class BTCPipeline:
                     logger.error(f"Database error: {e}")
                     raise
 
-            # Log error summary at the end
+            # Log error summary
             error_summary = self.error_tracker.get_error_summary()
             if error_summary:
                 logger.warning(f"Pipeline errors: {error_summary}")
             
             # Record metrics
+            total_retries = sum(
+                getattr(collector, 'retries', 0) 
+                for collector in self.collectors.values()
+            )
             self.metrics.end_collection(
                 records=len(processed_data),
-                retries=self.collector.retries if hasattr(self.collector, 'retries') else 0
+                retries=total_retries
             )
 
             if self.metrics.current_run:
@@ -191,4 +215,18 @@ End time: {self.metrics.current_run.end_time}""")
             logger.error(f"Pipeline error: {e}")
             raise
 
-
+async def collect_from_source(self, source: str, days: int = 14, rpa_config: Dict = None) -> List[BTCPrice]:
+    """Collect data from a specific source with error handling"""
+    try:
+        collector = self.collectors[source]
+        if source == 'rpa':
+            if not rpa_config:
+                raise ValueError("RPA collector requires configuration")
+            raw_records = await collector.collect(config=rpa_config)
+        else:
+            raw_records = await collector.collectBTC(days=days)
+        return raw_records
+    except Exception as e:
+            self.error_tracker.record_error(f'collection_{source}', e, {'days': days})
+            logger.error(f"Error collecting from {source}: {str(e)}")
+            return []
