@@ -35,6 +35,22 @@ class Settings:
     # Collection intervals
     PRICE_COLLECTION_INTERVAL: int = int(os.getenv("PRICE_COLLECTION_INTERVAL", "5"))
 
+    # Database settings
+    SQL_ECHO: bool = os.getenv('SQL_ECHO', 'false').lower() == 'true'
+    DB_POOL_SIZE: int = int(os.getenv('DB_POOL_SIZE', '5'))
+    DB_MAX_OVERFLOW: int = int(os.getenv('DB_MAX_OVERFLOW', '10'))
+    DB_POOL_TIMEOUT: int = int(os.getenv('DB_POOL_TIMEOUT', '30'))
+    DB_POOL_RECYCLE: int = int(os.getenv('DB_POOL_RECYCLE', '1800'))
+
+    # Cache settings
+    CACHE_DEFAULT_TTL: int = int(os.getenv('CACHE_DEFAULT_TTL', '300'))
+    
+    # Batch processing settings
+    DEFAULT_BATCH_SIZE: int = int(os.getenv('DEFAULT_BATCH_SIZE', '1000'))
+    
+    # Performance monitoring
+    PERFORMANCE_THRESHOLD: float = float(os.getenv('PERFORMANCE_THRESHOLD', '5.0'))
+
     @classmethod
     def validate(cls) -> None:
         """Validate required settings."""

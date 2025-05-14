@@ -1,5 +1,5 @@
 # src/storage/quality_storage.py
-from sqlalchemy import Column, Integer, String, DateTime, JSON, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Boolean, Index
 from .database import Base
 
 class QualityCheckResult(Base):
@@ -12,3 +12,9 @@ class QualityCheckResult(Base):
     passed = Column(Boolean, nullable=False)
     message = Column(JSON)
     details = Column(JSON)
+
+    __table_args__ = (
+        Index('idx_quality_timestamp', timestamp.desc()),
+        Index('idx_quality_source', source),
+        Index('idx_quality_check_name', check_name)
+    )

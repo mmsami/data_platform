@@ -1,5 +1,5 @@
 # src/storage/models.py
-from sqlalchemy import Column, Integer, Float, DateTime, UniqueConstraint, String, Text
+from sqlalchemy import Column, Integer, Float, DateTime, UniqueConstraint, String, Text, Index
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -17,6 +17,9 @@ class BTCPrice(Base):
     # Let database handle uniqueness
     __table_args__ = (
         UniqueConstraint('price_timestamp', 'currency', name='unique_price_time_currency'),
+        Index('idx_btc_price_timestamp', price_timestamp),
+        Index('idx_btc_price_currency', currency),
+        Index('idx_btc_price_composite', currency, price_timestamp.desc())
     )
         
     
@@ -37,5 +40,7 @@ class BitcoinNews(Base):
 
     __table_args__ = (
         UniqueConstraint('title', 'published_at', name='unique_news'),
+        Index('idx_news_published_at', published_at.desc()),
+        Index('idx_news_source', source)
     )
 

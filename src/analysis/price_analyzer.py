@@ -2,11 +2,13 @@
 from typing import List, Dict, Tuple
 from datetime import datetime
 import pandas as pd
+from functools import lru_cache
 
 class PriceAnalyzer:
     def __init__(self, db_session) -> None:
         self.session = db_session
     
+    @lru_cache(maxsize=64)
     def get_price_history(self, currency: str, days: int = 30) -> pd.DataFrame:
         """Get price history for analysis"""
         query = f"""
@@ -19,6 +21,7 @@ class PriceAnalyzer:
         params = (currency,)  # Use a tuple for positional parameters
         return pd.read_sql(query, self.session.bind, params=params)
     
+    @lru_cache(maxsize=32)
     def calculate_daily_stats(self, currency: str) -> Dict:
         df = self.get_price_history(currency)
         return {
@@ -29,6 +32,7 @@ class PriceAnalyzer:
             'last_price': df['price'].iloc[-1]
         }
     
+    @lru_cache(maxsize=32)
     def compare_currencies(self, currency1: str, currency2: str) -> Dict:
         """Compare prices between currencies"""
         df1 = self.get_price_history(currency1)
