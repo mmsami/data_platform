@@ -1,13 +1,53 @@
-# podman-compose.yml
 version: '3.8'
 
 services:
   app:
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Containerfile
     environment:
-      - DATABASE_URL=${DATABASE_URL}  # Use your Neon connection string
+      - DATABASE_URL=${DATABASE_URL}
     volumes:
       - ./src:/app/src
       - ./notebooks:/app/notebooks
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  airflow:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Containerfile.airflow
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://airflow:airflow@postgres/airflow
+      - DATABASE_URL=${DATABASE_URL}
+      - _AIRFLOW_WWW_USER_USERNAME=airflow
+      - _AIRFLOW_WWW_USER_PASSWORD=airflow
+      - PYTHONPATH=/opt/airflow
+      # - AIRFLOW__AUTH__AUTH_MANAGER=airflow.auth.managers.simple_auth_manager.SimpleAuthManager
+      # - AIRFLOW__AUTH__SIMPLE_AUTH_USERS='["airflow:airflow"]'
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+    ports:
+      - "8085:8080"
+    command: standalone
+    depends_on:
+      - postgres
+
+volumes:
+  postgres-db-volume:

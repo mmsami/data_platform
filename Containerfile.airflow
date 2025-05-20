@@ -1,0 +1,25 @@
+FROM apache/airflow:3.0.1
+
+USER root
+RUN apt-get update && apt-get install -y \
+    gcc postgresql-client libpq-dev python3-dev \
+    curl build-essential pkg-config \
+    chromium chromium-driver wget \
+    xvfb unzip libgconf-2-4
+
+USER airflow
+COPY requirements.txt /opt/airflow/
+RUN pip install --no-cache-dir -r /opt/airflow/requirements.txt \
+    && pip install selenium webdriver-manager
+
+# Set up Selenium WebDriver environment variables
+ENV CHROME_BIN=/usr/bin/chromium-browser
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+ENV PATH="/usr/lib/chromium-browser:/usr/bin/chromedriver:${PATH}"
+ENV PYTHONPATH=/opt/airflow
+ENV DISPLAY=:99
+
+COPY src/ /opt/airflow/src/
+COPY airflow/dags /opt/airflow/dags/
+
+CMD ["airflow", "standalone"]
