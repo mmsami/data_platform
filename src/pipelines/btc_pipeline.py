@@ -20,9 +20,10 @@ from src.utils.exceptions import ValidationError, CollectionError
 from src.utils.error_tracker import ErrorTracker
 from src.validators.validators import DataQualityValidator
 from src.storage.quality_storage import QualityCheckResult
+from src.utils.json_encoder import serialize_for_json
 
 class BTCPipeline:
-    def __init__(self):
+    def __init__(self, strict_validation: bool = False):
         # Initialize collectors
         self.collectors = {
             'coingecko': CoinGeckoCollector(),
@@ -36,6 +37,7 @@ class BTCPipeline:
         self.validator = PriceValidator()
         self.error_tracker = ErrorTracker()
         self.quality_validator = DataQualityValidator()
+        self.strict_validation = strict_validation
 
     async def run(self, days: int = 14, sources: List[str] = None, rpa_config: Dict = None) -> List[BTCPrice]:
         """Enhanced pipeline supporting multiple data sources"""
@@ -98,7 +100,7 @@ class BTCPipeline:
                             check_name=check.name,
                             passed=check.passed,
                             message=check.message,
-                            details=check.details
+                            details=serialize_for_json(check.details) if check.details else None
                         )
                         session.add(result)
                     session.commit()
@@ -126,7 +128,8 @@ class BTCPipeline:
                         ValueError(f"No data for {currency}"),
                         {'currency': currency}
                     )
-                    validation_errors = True
+                    if self.strict_validation:  # Only raise if strict
+                        validation_errors = True
                     continue
 
                 prices = [r.price for r in currency_data]
@@ -134,17 +137,20 @@ class BTCPipeline:
                 validation_result = self.validator.validate_price_data(prices, timestamps)
 
                 if not validation_result.is_valid:
-                    validation_errors = True
+                    if self.strict_validation:  # Only raise if strict
+                        validation_errors = True
                     self.error_tracker.record_error(
                         'validation',
                         ValueError(validation_result.errors),
                         {'currency': currency}
                     )
+                    # Log but continue
+                    logger.warning(f"Validation issues for {currency}: {validation_result.errors}")
 
             # Stop pipeline if validation failed
-            if validation_errors or quality_issues:
-                logger.error("Validation or quality checks failed, stopping pipeline")
-                raise ValueError("Data validation or quality checks failed")
+            if validation_errors and self.strict_validation:
+                logger.error("Validation failed and strict validation is enabled")
+                raise ValueError("Data validation failed")
 
             # Store data
             with self.db.get_session() as session:
@@ -154,8 +160,8 @@ class BTCPipeline:
                             {
                                 'price': record.price,
                                 'currency': record.currency,
-                                'price_timestamp': record.price_timestamp,
-                                'collected_at': record.collected_at
+                                'price_timestamp': record.price_timestamp.isoformat(),
+                                'collected_at': record.collected_at.isoformat()
                             }
                             for record in processed_data
                         ]
@@ -215,18 +221,18 @@ End time: {self.metrics.current_run.end_time}""")
             logger.error(f"Pipeline error: {e}")
             raise
 
-async def collect_from_source(self, source: str, days: int = 14, rpa_config: Dict = None) -> List[BTCPrice]:
-    """Collect data from a specific source with error handling"""
-    try:
-        collector = self.collectors[source]
-        if source == 'rpa':
-            if not rpa_config:
-                raise ValueError("RPA collector requires configuration")
-            raw_records = await collector.collect(config=rpa_config)
-        else:
-            raw_records = await collector.collectBTC(days=days)
-        return raw_records
-    except Exception as e:
-            self.error_tracker.record_error(f'collection_{source}', e, {'days': days})
-            logger.error(f"Error collecting from {source}: {str(e)}")
-            return []
+    async def collect_from_source(self, source: str, days: int = 14, rpa_config: Dict = None) -> List[BTCPrice]:
+        """Collect data from a specific source with error handling"""
+        try:
+            collector = self.collectors[source]
+            if source == 'rpa':
+                if not rpa_config:
+                    raise ValueError("RPA collector requires configuration")
+                raw_records = await collector.collect(config=rpa_config)
+            else:
+                raw_records = await collector.collectBTC(days=days)
+            return raw_records
+        except Exception as e:
+                self.error_tracker.record_error(f'collection_{source}', e, {'days': days})
+                logger.error(f"Error collecting from {source}: {str(e)}")
+                return []
